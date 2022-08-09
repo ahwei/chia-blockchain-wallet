@@ -15,12 +15,7 @@ import {
   TooltipIcon,
 } from '@chia/core';
 import { useGetKeyringStatusQuery } from '@chia/api-react';
-import {
-  Grid,
-  Typography,
-  Box,
-  Tooltip,
-} from '@mui/material';
+import { Grid, Typography, Box, Tooltip } from '@mui/material';
 import {
   Help as HelpIcon,
   Lock as LockIcon,
@@ -52,7 +47,6 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-
 export default function SettingsPanel() {
   const classes = useStyles();
   const openDialog = useOpenDialog();
@@ -63,26 +57,20 @@ export default function SettingsPanel() {
   const [addPassphraseOpen, setAddPassphraseOpen] = React.useState(false);
 
   if (isLoading) {
-    return (
-      <Suspender />
-    );
+    return <Suspender />;
   }
 
-  const passphraseSupportEnabled = keyringStatus?.passphraseSupportEnabled ?? false;
+  const passphraseSupportEnabled =
+    keyringStatus?.passphraseSupportEnabled ?? false;
 
-  const {
-    userPassphraseIsSet,
-    needsMigration,
-  } = keyringStatus;
+  const { userPassphraseIsSet, needsMigration } = keyringStatus;
 
   async function changePassphraseSucceeded() {
     closeChangePassphrase();
     await openDialog(
       <AlertDialog>
-        <Trans>
-          Your passphrase has been updated
-        </Trans>
-      </AlertDialog>
+        <Trans>Your passphrase has been updated</Trans>
+      </AlertDialog>,
     );
   }
 
@@ -90,10 +78,8 @@ export default function SettingsPanel() {
     closeSetPassphrase();
     await openDialog(
       <AlertDialog>
-        <Trans>
-          Your passphrase has been set
-        </Trans>
-      </AlertDialog>
+        <Trans>Your passphrase has been set</Trans>
+      </AlertDialog>,
     );
   }
 
@@ -101,10 +87,8 @@ export default function SettingsPanel() {
     closeRemovePassphrase();
     await openDialog(
       <AlertDialog>
-        <Trans>
-          Passphrase protection has been disabled
-        </Trans>
-      </AlertDialog>
+        <Trans>Passphrase protection has been disabled</Trans>
+      </AlertDialog>,
     );
   }
 
@@ -125,23 +109,34 @@ export default function SettingsPanel() {
     let icon: JSX.Element | null = null;
     let statusMessage: JSX.Element | null = null;
     let tooltipTitle: React.ReactElement;
-    const tooltipIconStyle: React.CSSProperties = { color: '#c8c8c8', fontSize: 12 };
+    const tooltipIconStyle: React.CSSProperties = {
+      color: '#c8c8c8',
+      fontSize: 12,
+    };
 
     if (needsMigration) {
       state = State.WARNING;
-      icon = (<NoEncryptionIcon style={{ color: 'red',  marginRight: 6 }} />);
-      statusMessage = (<Trans>Migration required to support passphrase protection</Trans>);
-      tooltipTitle = (<Trans>Passphrase support requires migrating your keys to a new keyring</Trans>);
+      icon = <NoEncryptionIcon style={{ color: 'red', marginRight: 6 }} />;
+      statusMessage = (
+        <Trans>Migration required to support passphrase protection</Trans>
+      );
+      tooltipTitle = (
+        <Trans>
+          Passphrase support requires migrating your keys to a new keyring
+        </Trans>
+      );
     } else {
-      tooltipTitle = (<Trans>Secure your keychain using a strong passphrase</Trans>);
+      tooltipTitle = (
+        <Trans>Secure your keychain using a strong passphrase</Trans>
+      );
 
       if (userPassphraseIsSet) {
-        icon = (<LockIcon style={{ color: '#3AAC59',  marginRight: 6 }} />);
-        statusMessage = (<Trans>Passphrase protection is enabled</Trans>);
+        icon = <LockIcon style={{ color: '#3AAC59', marginRight: 6 }} />;
+        statusMessage = <Trans>Passphrase protection is enabled</Trans>;
       } else {
         state = State.WARNING;
-        icon = (<NoEncryptionIcon style={{ color: 'red',  marginRight: 6 }} />);
-        statusMessage = (<Trans>Passphrase protection is disabled</Trans>);
+        icon = <NoEncryptionIcon style={{ color: 'red', marginRight: 6 }} />;
+        statusMessage = <Trans>Passphrase protection is disabled</Trans>;
       }
     }
 
@@ -181,10 +176,7 @@ export default function SettingsPanel() {
   function ActionButtons() {
     if (needsMigration) {
       return (
-        <Button
-          onClick={() => setSkipMigration(false)}
-          variant="outlined"
-        >
+        <Button onClick={() => setSkipMigration(false)} variant="outlined">
           <Trans>Migrate Keyring</Trans>
         </Button>
       );
@@ -200,10 +192,7 @@ export default function SettingsPanel() {
         );
       } else {
         return (
-          <Button
-            onClick={() => setAddPassphraseOpen(true)}
-            variant="outlined"
-          >
+          <Button onClick={() => setAddPassphraseOpen(true)} variant="outlined">
             <Trans>Set Passphrase</Trans>
           </Button>
         );
@@ -219,10 +208,12 @@ export default function SettingsPanel() {
             <Trans>Derivation Index</Trans>
             <TooltipIcon>
               <Trans>
-                The derivation index sets the range of wallet addresses that the wallet scans the blockchain for.
-                This number is generally higher if you have a lot of transactions or canceled offers for XCH, CATs, or NFTs.
-                If you believe your balance is incorrect because it’s missing coins,
-                then increasing the derivation index could help the wallet include the missing coins in the balance total.
+                The derivation index sets the range of wallet addresses that the
+                wallet scans the blockchain for. This number is generally higher
+                if you have a lot of transactions or canceled offers for XCH,
+                CATs, or NFTs. If you believe your balance is incorrect because
+                it’s missing coins, then increasing the derivation index could
+                help the wallet include the missing coins in the balance total.
               </Trans>
             </TooltipIcon>
           </Flex>

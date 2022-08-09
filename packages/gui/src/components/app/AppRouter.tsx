@@ -20,6 +20,7 @@ export default function AppRouter() {
           <Route element={<LayoutHero settings={<SettingsPanel />} outlet />}>
             <Route index element={<SelectKey />} />
           </Route>
+
           <Route
             element={<LayoutHero settings={<SettingsPanel />} back outlet />}
           >
@@ -31,7 +32,7 @@ export default function AppRouter() {
             element={
               <LayoutDashboard
                 settings={<SettingsPanel />}
-                sidebar={<DashboardSideBar simple />}
+                // sidebar={<DashboardSideBar simple />}
                 actions={<WalletStatusHeader />}
                 outlet
               />
