@@ -83,7 +83,7 @@ export type SideBarItemProps = {
 };
 
 export default function SideBarItem(props: SideBarItemProps) {
-  const { to, title, icon: Icon, end = false, onSelect, ...rest } = props;
+  const { to, title, icon: Icon, end = false, onSelect } = props;
   const navigate = useNavigate();
   const match = useMatch({
     path: to,
@@ -101,7 +101,7 @@ export default function SideBarItem(props: SideBarItemProps) {
   }
 
   return (
-    <StyledListItem button onClick={() => handleClick()} {...rest}>
+    <StyledListItem button onClick={() => handleClick()} >
       <Flex flexDirection="column" alignItems="center" gap={0.5}>
         <StyledListItemIcon selected={isSelected}>
           <Icon fontSize="sidebarIcon" />

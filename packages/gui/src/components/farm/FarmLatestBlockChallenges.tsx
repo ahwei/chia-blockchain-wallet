@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trans } from '@lingui/macro';
-import { Table, Card } from '@chia/core';
+import { Typography } from '@mui/material';
+import { Link, Table, Card } from '@chia/core';
 import {
   useGetSignagePointsQuery,
   useGetTotalHarvestersSummaryQuery,

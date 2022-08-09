@@ -77,7 +77,7 @@ export default function WalletConnections(props: WalletConnectionsProps) {
 
   return (
     <Card
-      title={<Trans>Wallet Connections</Trans>}
+      title={<Trans>Connections</Trans>}
     >
       {isLoading ? (
         <Loading center />

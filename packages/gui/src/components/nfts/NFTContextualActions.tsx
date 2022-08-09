@@ -20,7 +20,6 @@ import {
   PermIdentity as PermIdentityIcon,
 } from '@mui/icons-material';
 import { NFTTransferDialog, NFTTransferResult } from './NFTTransferAction';
-import NFTOfferExchangeType from '../offers/NFTOfferExchangeType';
 import NFTMoveToProfileDialog from './NFTMoveToProfileDialog';
 import NFTSelection from '../../types/NFTSelection';
 import useOpenUnsafeLink from '../../hooks/useOpenUnsafeLink';
@@ -126,7 +125,6 @@ function NFTCreateOfferContextualAction(
     navigate('/dashboard/offers/create-with-nft', {
       state: {
         nft: selectedNft,
-        exchangeType: NFTOfferExchangeType.NFTForToken,
         referrerPath: location.hash.split('#').slice(-1)[0],
       },
     });

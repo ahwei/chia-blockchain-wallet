@@ -193,7 +193,6 @@ export default function WalletCATSend(props: Props) {
                 fullWidth
                 disabled={isSubmitting}
                 label={<Trans>Address / Puzzle hash</Trans>}
-                data-testid="WalletCATSend-address"
                 required
               />
             </Grid>
@@ -206,7 +205,6 @@ export default function WalletCATSend(props: Props) {
                 disabled={isSubmitting}
                 label={<Trans>Amount</Trans>}
                 currency={unit}
-                data-testid="WalletCATSend-amount"
                 fullWidth
                 required
               />
@@ -219,7 +217,6 @@ export default function WalletCATSend(props: Props) {
                 color="secondary"
                 disabled={isSubmitting}
                 label={<Trans>Fee</Trans>}
-                data-testid="WalletCATSend-fee"
                 fullWidth
               />
             </Grid>
@@ -232,7 +229,6 @@ export default function WalletCATSend(props: Props) {
                   fullWidth
                   disabled={isSubmitting}
                   label={<Trans>Memo</Trans>}
-                  data-testid="WalletCATSend-memo"
                 />
               </AdvancedOptions>
             </Grid>
@@ -240,7 +236,7 @@ export default function WalletCATSend(props: Props) {
         </Card>
         <Flex justifyContent="flex-end" gap={1}>
           {isSimulator && (
-            <Button onClick={farm} variant="outlined" data-testid="WalletCATSend-farm">
+            <Button onClick={farm} variant="outlined">
               <Trans>Farm</Trans>
             </Button>
           )}
@@ -250,7 +246,6 @@ export default function WalletCATSend(props: Props) {
             type="submit"
             disabled={!canSubmit}
             loading={isSpendCatLoading}
-            data-testid="WalletCATSend-send"
           >
             <Trans>Send</Trans>
           </ButtonLoading>

@@ -47,6 +47,7 @@ export default function useViewNFTOnExplorer() {
   const testnet = useCurrencyCode() === 'TXCH';
 
   function handleViewNFTOnExplorer(nft: NFTInfo, explorer: NFTExplorer) {
+    const { nftId: $nftId } = nft;
     const urlBuilder = UrlBuilderMapping[explorer];
     const url = urlBuilder(nft, testnet);
 

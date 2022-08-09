@@ -1,14 +1,4 @@
-import {
-  app,
-  dialog,
-  net,
-  shell,
-  ipcMain,
-  BrowserWindow,
-  IncomingMessage,
-  Menu,
-  nativeImage,
-} from 'electron';
+import { app, dialog, net, shell, ipcMain, BrowserWindow, IncomingMessage, Menu, session, nativeImage } from 'electron';
 import { initialize } from '@electron/remote/main';
 import path from 'path';
 import React from 'react';
@@ -23,12 +13,11 @@ import handleSquirrelEvent from './handleSquirrelEvent';
 import loadConfig from '../util/loadConfig';
 import manageDaemonLifetime from '../util/manageDaemonLifetime';
 import chiaEnvironment from '../util/chiaEnvironment';
-import { setUserDataDir } from '../util/userData';
 import { i18n } from '../config/locales';
 import About from '../components/about/About';
 import packageJson from '../../package.json';
 import AppIcon from '../assets/img/chia64x64.png';
-import windowStateKeeper from 'electron-window-state';
+
 
 const NET = 'mainnet';
 
@@ -37,9 +26,8 @@ app.disableHardwareAcceleration();
 initialize();
 
 const appIcon = nativeImage.createFromPath(path.join(__dirname, AppIcon));
-
-// Set the userData directory to its location within CHIA_ROOT/gui
-setUserDataDir();
+let isSimulator = process.env.LOCAL_TEST === 'true';
+const isDev = process.env.NODE_ENV === 'development';
 
 function renderAbout(): string {
   const sheet = new ServerStyleSheet();
@@ -76,7 +64,7 @@ function openAbout() {
 
   aboutWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
-    return { action: 'deny' };
+    return { action: 'deny' }
   });
 
   aboutWindow.once('closed', () => {
@@ -126,6 +114,18 @@ if (!handleSquirrelEvent()) {
 
   const createMenu = () => Menu.buildFromTemplate(getMenuTemplate());
 
+  function toggleSimulatorMode() {
+    isSimulator = !isSimulator;
+
+    if (mainWindow) {
+      mainWindow.webContents.send('simulator-mode', isSimulator);
+    }
+
+    if (app) {
+      app.applicationMenu = createMenu();
+    }
+  }
+
   // if any of these checks return false, don't do any other initialization since the app is quitting
   if (ensureSingleInstance() && ensureCorrectEnvironment()) {
     const exitPyProc = (e) => {};
@@ -149,142 +149,129 @@ if (!handleSquirrelEvent()) {
 
       ipcMain.handle('getVersion', () => app.getVersion());
 
-      ipcMain.handle(
-        'fetchTextResponse',
-        async (_event, requestOptions, requestHeaders, requestData) => {
-          const request = net.request(requestOptions as any);
+      ipcMain.handle('fetchTextResponse', async (_event, requestOptions, requestHeaders, requestData) => {
+        const request = net.request(requestOptions as any);
 
-          Object.entries(requestHeaders || {}).forEach(([header, value]) => {
-            request.setHeader(header, value as any);
-          });
+        Object.entries(requestHeaders || {}).forEach(([header, value]) => {
+          request.setHeader(header, value as any);
+        });
 
-          let err: any | undefined = undefined;
-          let statusCode: number | undefined = undefined;
-          let statusMessage: string | undefined = undefined;
-          let responseBody: string | undefined = undefined;
+        let err: any | undefined = undefined;
+        let statusCode: number | undefined = undefined;
+        let statusMessage: string | undefined = undefined;
+        let responseBody: string | undefined = undefined;
 
-          try {
-            responseBody = await new Promise((resolve, reject) => {
-              request.on('response', (response: IncomingMessage) => {
-                statusCode = response.statusCode;
-                statusMessage = response.statusMessage;
+        try {
+          responseBody = await new Promise((resolve, reject) => {
+            request.on('response', (response: IncomingMessage) => {
+              statusCode = response.statusCode;
+              statusMessage = response.statusMessage;
 
-                response.on('data', (chunk) => {
-                  const body = chunk.toString('utf8');
+              response.on('data', (chunk) => {
+                const body = chunk.toString('utf8');
 
-                  resolve(body);
-                });
-
-                response.on('error', (e: string) => {
-                  reject(new Error(e));
-                });
+                resolve(body);
               });
 
-              request.on('error', (error: any) => {
-                reject(error);
+              response.on('error', (e: string) => {
+                reject(new Error(e));
               });
-
-              request.write(requestData);
-              request.end();
             });
-          } catch (e) {
-            console.error(e);
-            err = e;
-          }
 
-          return { err, statusCode, statusMessage, responseBody };
-        },
-      );
+            request.on('error', (error: any) => {
+              reject(error);
+            })
 
-      ipcMain.handle(
-        'fetchBinaryContent',
-        async (
-          _event,
-          requestOptions = {},
-          requestHeaders = {},
-          requestData?: any,
-        ) => {
-          const { maxSize = Infinity, ...rest } = requestOptions;
-          const request = net.request(rest);
+            request.write(requestData);
+            request.end();
+          });
+        }
+        catch (e) {
+          console.error(e);
+          err = e;
+        }
 
-          Object.entries(requestHeaders).forEach(
-            ([header, value]: [string, any]) => {
-              request.setHeader(header, value);
-            },
-          );
+        return { err, statusCode, statusMessage, responseBody };
+      });
 
-          let error: Error | undefined;
-          let statusCode: number | undefined;
-          let statusMessage: string | undefined;
-          let contentType: string | undefined;
-          let encoding = 'binary';
-          let data: string | undefined;
+      ipcMain.handle('fetchBinaryContent', async (_event, requestOptions = {}, requestHeaders = {}, requestData?: any) => {
+        const { maxSize = Infinity , ...rest } = requestOptions;
+        const request = net.request(rest);
 
-          const buffers: Buffer[] = [];
-          let totalLength = 0;
+        Object.entries(requestHeaders).forEach(([header, value]: [string, any]) => {
+          request.setHeader(header, value);
+        });
 
-          try {
-            data = await new Promise((resolve, reject) => {
-              request.on('response', (response: IncomingMessage) => {
-                statusCode = response.statusCode;
-                statusMessage = response.statusMessage;
+        let error: Error | undefined;
+        let statusCode: number | undefined;
+        let statusMessage: string | undefined;
+        let contentType: string | undefined;
+        let encoding = 'binary';
+        let data: string | undefined;
 
-                const rawContentType = response.headers['content-type'];
-                if (rawContentType) {
-                  if (Array.isArray(rawContentType)) {
-                    contentType = rawContentType[0];
-                  } else {
-                    contentType = rawContentType;
-                  }
+        const buffers: Buffer[] = [];
+        let totalLength = 0;
 
-                  if (contentType) {
-                    // extract charset from contentType
-                    const charsetMatch = contentType.match(/charset=([^;]+)/);
-                    if (charsetMatch) {
-                      encoding = charsetMatch[1];
-                    }
-                  }
+        try {
+          data = await new Promise((resolve, reject) => {
+            request.on('response', (response: IncomingMessage) => {
+              statusCode = response.statusCode;
+              statusMessage = response.statusMessage;
+
+              const rawContentType = response.headers['content-type'];
+              if (rawContentType) {
+                if (Array.isArray(rawContentType)) {
+                  contentType = rawContentType[0];
+                }
+                else {
+                  contentType = rawContentType;
                 }
 
-                response.on('data', (chunk) => {
-                  buffers.push(chunk);
-
-                  totalLength += chunk.byteLength;
-
-                  if (totalLength > maxSize) {
-                    reject(new Error('Response too large'));
-                    request.abort();
+                if (contentType) {
+                  // extract charset from contentType
+                  const charsetMatch = contentType.match(/charset=([^;]+)/);
+                  if (charsetMatch) {
+                    encoding = charsetMatch[1];
                   }
-                });
-
-                response.on('end', () => {
-                  resolve(
-                    Buffer.concat(buffers).toString(encoding as BufferEncoding),
-                  );
-                });
-
-                response.on('error', (e: string) => {
-                  reject(new Error(e));
-                });
-              });
-
-              request.on('error', (error: any) => {
-                reject(error);
-              });
-
-              if (requestData) {
-                request.write(requestData);
+                }
               }
 
-              request.end();
-            });
-          } catch (e: any) {
-            error = e;
-          }
+              response.on('data', (chunk) => {
+                buffers.push(chunk);
 
-          return { error, statusCode, statusMessage, encoding, data };
-        },
-      );
+                totalLength += chunk.byteLength;
+
+                if (totalLength > maxSize) {
+                  reject(new Error('Response too large'));
+                  request.abort();
+                }
+              });
+
+              response.on('end', () => {
+                resolve(Buffer.concat(buffers).toString(encoding as BufferEncoding));
+              });
+
+              response.on('error', (e: string) => {
+                reject(new Error(e));
+              });
+            });
+
+            request.on('error', (error: any) => {
+              reject(error);
+            })
+
+            if (requestData) {
+              request.write(requestData);
+            }
+
+            request.end();
+          });
+        } catch (e: any) {
+          error = e;
+        }
+
+        return { error, statusCode, statusMessage, encoding, data };
+      });
 
       ipcMain.handle('showMessageBox', async (_event, options) => {
         return await dialog.showMessageBox(mainWindow, options);
@@ -303,15 +290,9 @@ if (!handleSquirrelEvent()) {
       });
 
       decidedToClose = false;
-      const mainWindowState = windowStateKeeper({
-        defaultWidth: 1200,
-        defaultHeight: 1200,
-      });
       mainWindow = new BrowserWindow({
-        x: mainWindowState.x,
-        y: mainWindowState.y,
-        width: mainWindowState.width,
-        height: mainWindowState.height,
+        width: 1200,
+        height: 1200,
         minWidth: 500,
         minHeight: 500,
         backgroundColor: '#ffffff',
@@ -320,15 +301,20 @@ if (!handleSquirrelEvent()) {
           preload: `${__dirname}/preload.js`,
           nodeIntegration: true,
           contextIsolation: false,
-          nativeWindowOpen: true,
+          nativeWindowOpen: true
         },
       });
 
-      mainWindowState.manage(mainWindow);
-
-      if (process.platform === 'linux') {
+      if(process.platform === 'linux') {
         mainWindow.setIcon(appIcon);
       }
+
+      /*
+      if (isSimulator || isDev) {
+        await app.whenReady();
+        installExtension(REDUX_DEVTOOLS);
+        installExtension(REACT_DEVELOPER_TOOLS);
+      }*/
 
       mainWindow.once('ready-to-show', () => {
         mainWindow.show();
@@ -358,10 +344,10 @@ if (!handleSquirrelEvent()) {
           const choice = dialog.showMessageBoxSync({
             type: 'question',
             buttons: [
-              i18n._(/* i18n */ { id: 'No' }),
-              i18n._(/* i18n */ { id: 'Yes' }),
+              i18n._(/* i18n */ {id: 'No'}),
+              i18n._(/* i18n */ {id: 'Yes'}),
             ],
-            title: i18n._(/* i18n */ { id: 'Confirm' }),
+            title: i18n._(/* i18n */ {id: 'Confirm'}),
             message: i18n._(
               /* i18n */ {
                 id: 'Are you sure you want to quit?',
@@ -375,10 +361,7 @@ if (!handleSquirrelEvent()) {
           isClosing = false;
           decidedToClose = true;
           mainWindow.webContents.send('exit-daemon');
-          // save the window state and unmange so we don't restore the mini exiting state
-          mainWindowState.saveState(mainWindow);
-          mainWindowState.unmanage(mainWindow);
-          mainWindow.setBounds({ height: 500, width: 500 });
+          mainWindow.setBounds({height: 500, width: 500});
           mainWindow.center();
           ipcMain.on('daemon-exited', (event, args) => {
             mainWindow.close();
@@ -388,17 +371,20 @@ if (!handleSquirrelEvent()) {
         }
       });
 
+
+
       const startUrl =
-        process.env.NODE_ENV === 'development'
-          ? 'http://localhost:3000'
-          : url.format({
-              pathname: path.join(__dirname, '/../renderer/index.html'),
-              protocol: 'file:',
-              slashes: true,
-            });
+      process.env.NODE_ENV === 'development'
+        ? 'http://localhost:3000'
+        : url.format({
+          pathname: path.join(__dirname, '/../renderer/index.html'),
+          protocol: 'file:',
+          slashes: true,
+        });
 
       mainWindow.loadURL(startUrl);
-      require('@electron/remote/main').enable(mainWindow.webContents);
+      require("@electron/remote/main").enable(mainWindow.webContents)
+
     };
 
     const appReady = async () => {
@@ -425,6 +411,10 @@ if (!handleSquirrelEvent()) {
     ipcMain.handle('setLocale', (_event, locale: string) => {
       i18n.activate(locale);
       app.applicationMenu = createMenu();
+    });
+
+    ipcMain.on('isSimulator', (event) => {
+      event.returnValue = isSimulator;
     });
   }
 
@@ -490,12 +480,12 @@ if (!handleSquirrelEvent()) {
                     : 'Ctrl+Shift+I',
                 click: () => mainWindow.toggleDevTools(),
               },
-              //{
-              //label: isSimulator
-              //  ? i18n._(/* i18n */ { id: 'Disable Simulator' })
-              //   : i18n._(/* i18n */ { id: 'Enable Simulator' }),
-              // click: () => toggleSimulatorMode(),
-              //},
+              {
+                label: isSimulator
+                  ? i18n._(/* i18n */ { id: 'Disable Simulator' })
+                  : i18n._(/* i18n */ { id: 'Enable Simulator' }),
+                click: () => toggleSimulatorMode(),
+              },
             ],
           },
           {

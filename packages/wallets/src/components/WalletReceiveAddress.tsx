@@ -1,17 +1,7 @@
 import React from 'react';
 import { Trans } from '@lingui/macro';
-import {
-  ButtonLoading,
-  CopyToClipboard,
-  Card,
-  Loading,
-  Flex,
-  TooltipIcon,
-} from '@chia/core';
-import {
-  useGetCurrentAddressQuery,
-  useGetNextAddressMutation,
-} from '@chia/api-react';
+import { Button, CopyToClipboard, Card, Loading, Flex, TooltipIcon } from '@chia/core';
+import { useGetCurrentAddressQuery, useGetNextAddressMutation } from '@chia/api-react';
 import {
   Box,
   TextField,
@@ -29,8 +19,7 @@ export default function WalletReceiveAddress(props: WalletReceiveAddressProps) {
   const { data: address, isLoading } = useGetCurrentAddressQuery({
     walletId,
   });
-  const [newAddress, { isLoading: isLoadingNewAddress }] =
-    useGetNextAddressMutation();
+  const [newAddress] = useGetNextAddressMutation();
 
   async function handleNewAddress() {
     await newAddress({
@@ -47,22 +36,17 @@ export default function WalletReceiveAddress(props: WalletReceiveAddressProps) {
           &nbsp;
           <TooltipIcon>
             <Trans>
-              HD or Hierarchical Deterministic keys are a type of public
-              key/private key scheme where one private key can have a nearly
-              infinite number of different public keys (and therefore wallet
-              receive addresses) that will all ultimately come back to and be
-              spendable by a single private key.
+              HD or Hierarchical Deterministic keys are a type of public key/private
+              key scheme where one private key can have a nearly infinite number of
+              different public keys (and therefore wallet receive addresses) that
+              will all ultimately come back to and be spendable by a single private
+              key.
             </Trans>
           </TooltipIcon>
         </Typography>
-        <ButtonLoading
-          onClick={handleNewAddress}
-          loading={isLoadingNewAddress}
-          variant="outlined"
-          data-testid="WalletReceiveAddress-new-address"
-        >
+        <Button onClick={handleNewAddress} variant="outlined">
           <Trans>New Address</Trans>
-        </ButtonLoading>
+        </Button>
       </Flex>
 
       <Card>
@@ -76,17 +60,11 @@ export default function WalletReceiveAddress(props: WalletReceiveAddressProps) {
                   label={<Trans>Address</Trans>}
                   value={address}
                   variant="filled"
-                  inputProps={{
-                    'data-testid': 'WalletReceiveAddress-address',
-                    readOnly: true,
-                  }}
                   InputProps={{
+                    readOnly: true,
                     endAdornment: (
                       <InputAdornment position="end">
-                        <CopyToClipboard
-                          value={address}
-                          data-testid="WalletReceiveAddress-address-copy"
-                        />
+                        <CopyToClipboard value={address} />
                       </InputAdornment>
                     ),
                   }}

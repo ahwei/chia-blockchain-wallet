@@ -50,12 +50,11 @@ export default function LocaleToggle(props) {
   return (
     <>
       <Button
-        aria-controls="menu"
+        aria-controls="simple-menu"
         aria-haspopup="true"
         onClick={handleClick}
         startIcon={<Translate />}
         endIcon={<ExpandMore />}
-        data-testid="LocaleToggle-dropdown"
         {...rest}
       >
         {currentLocaleLabel}
@@ -76,7 +75,6 @@ export default function LocaleToggle(props) {
             key={item.locale}
             onClick={() => handleSelect(item.locale)}
             selected={item.locale === currentLocale}
-            data-testid={`LocaleToggle-locale-${item.locale}`}
           >
             {item.label}
           </MenuItem>

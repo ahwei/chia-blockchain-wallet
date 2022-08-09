@@ -1,10 +1,11 @@
 import React from 'react';
+import { Trans } from '@lingui/macro';
 import { Dialog, DialogContent, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
 type Props = {
   onClose: () => void;
-  children?: React.ReactNode;
+  children?: ReactNode;
   open: boolean;
 };
 

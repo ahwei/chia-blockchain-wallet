@@ -4,13 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import BigNumber from 'bignumber.js';
 import { Trans, t } from '@lingui/macro';
 import { useLocalStorage } from '@rehooks/local-storage';
-import { WalletType } from '@chia/api';
 import type { NFTInfo, Wallet } from '@chia/api';
 import {
   useCreateOfferForIdsMutation,
   useGetNFTInfoQuery,
   useGetNFTWallets,
-  useGetWalletBalanceQuery,
 } from '@chia/api-react';
 import {
   Amount,
@@ -26,15 +24,9 @@ import {
   TextField,
   Tooltip,
   TooltipIcon,
-  catToMojo,
   chiaToMojo,
-  mojoToCAT,
-  mojoToCATLocaleString,
-  mojoToChia,
-  mojoToChiaLocaleString,
   useColorModeValue,
   useCurrencyCode,
-  useLocale,
   useOpenDialog,
   useShowError,
 } from '@chia/core';
@@ -60,11 +52,10 @@ import useFetchNFTs from '../../hooks/useFetchNFTs';
 import NFTOfferPreview from './NFTOfferPreview';
 import NFTOfferExchangeType from './NFTOfferExchangeType';
 import styled from 'styled-components';
-import NFTOfferTokenSelector from './NFTOfferTokenSelector';
 
 /* ========================================================================== */
 /*              Temporary home for the NFT-specific Offer Editor              */
-/*       An NFT offer consists of a single NFT being offered for XCH/CAT      */
+/*        An NFT offer consists of a single NFT being offered for XCH         */
 /* ========================================================================== */
 
 const StyledWarningIcon = styled(WarningIcon)`
@@ -123,69 +114,16 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
   const { defaultValues, isProcessing } = props;
   const disabled = isProcessing;
   const methods = useFormContext();
-  const [locale] = useLocale();
+  const currencyCode = useCurrencyCode();
   const [amountFocused, setAmountFocused] = useState<boolean>(false);
   const [makerFeeFocused, setMakerFeeFocused] = useState<boolean>(false);
 
   const tab = methods.watch('exchangeType');
-  const tokenWalletInfo = methods.watch('tokenWalletInfo');
-  const amount = methods.watch('tokenAmount');
+  const amount = methods.watch('xchAmount');
   const makerFee = methods.watch('fee');
   const nftId = methods.watch('nftId');
   const launcherId = launcherIdFromNFTId(nftId ?? '');
   const { data: nft } = useGetNFTInfoQuery({ coinId: launcherId });
-  const { data: walletBalance, isLoading: isLoadingWalletBalance } =
-    useGetWalletBalanceQuery(
-      {
-        walletId: tokenWalletInfo.walletId,
-      },
-      {
-        skip: tab !== NFTOfferExchangeType.TokenForNFT,
-      },
-    );
-
-  const spendableBalanceString: string | undefined = useMemo(() => {
-    let balanceString: string | undefined;
-    let balance = new BigNumber(0);
-
-    if (
-      !isLoadingWalletBalance &&
-      tab === NFTOfferExchangeType.TokenForNFT &&
-      walletBalance &&
-      walletBalance.walletId == tokenWalletInfo.walletId
-    ) {
-      switch (tokenWalletInfo.walletType) {
-        case WalletType.STANDARD_WALLET:
-          balanceString = mojoToChiaLocaleString(
-            walletBalance.spendableBalance,
-            locale,
-          );
-          balance = mojoToChia(walletBalance.spendableBalance);
-          break;
-        case WalletType.CAT:
-          balanceString = mojoToCATLocaleString(
-            walletBalance.spendableBalance,
-            locale,
-          );
-          balance = mojoToCAT(walletBalance.spendableBalance);
-          break;
-        default:
-          break;
-      }
-    }
-
-    if (
-      balanceString !== tokenWalletInfo.spendableBalanceString ||
-      !balance.isEqualTo(tokenWalletInfo.spendableBalance)
-    ) {
-      tokenWalletInfo.spendableBalanceString = balanceString;
-      tokenWalletInfo.spendableBalance = balance;
-
-      methods.setValue('tokenWalletInfo', tokenWalletInfo);
-    }
-
-    return balanceString;
-  }, [tokenWalletInfo.walletId, walletBalance, isLoadingWalletBalance, locale]);
 
   // HACK: manually determine the value for the amount field's shrink input prop.
   // Without this, toggling between the two tabs with an amount specified will cause
@@ -208,19 +146,17 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
     }
 
     const royaltyPercentage = convertRoyaltyToPercentage(nft.royaltyPercentage);
-    const includedMakerFee =
-      tokenWalletInfo.walletType === WalletType.STANDARD_WALLET ? makerFee : 0;
 
     return {
       ...calculateNFTRoyalties(
         parseFloat(amount ? amount : '0'),
-        parseFloat(includedMakerFee ? includedMakerFee : '0'),
+        parseFloat(makerFee ? makerFee : '0'),
         convertRoyaltyToPercentage(nft.royaltyPercentage),
         tab,
       ),
       royaltyPercentage,
     };
-  }, [amount, makerFee, nft, tokenWalletInfo, tab]);
+  }, [amount, makerFee, nft, tab]);
 
   const {
     royaltyPercentage,
@@ -248,62 +184,29 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
     </Grid>
   );
   const amountElem = (
-    <Flex flexDirection="row" gap={2}>
-      <Grid xs={6} item>
-        <Flex flexDirection="column" gap={1}>
-          <Amount
-            id={`${tab}-amount}`}
-            key={`${tab}-amount}`}
-            variant="filled"
-            name="tokenAmount"
-            color="secondary"
-            disabled={disabled}
-            label={<Trans>Amount</Trans>}
-            defaultValue={amount}
-            symbol={tokenWalletInfo.symbol ?? ''}
-            onChange={handleAmountChange}
-            onFocus={() => setAmountFocused(true)}
-            onBlur={() => setAmountFocused(false)}
-            showAmountInMojos={true}
-            InputLabelProps={{ shrink: shrinkAmount }}
-            autoFocus
-            required
-            fullWidth
-          />
-          {tab === NFTOfferExchangeType.TokenForNFT && (
-            <Flex flexDirection="row" alignItems="center" gap={1}>
-              <Typography variant="body2">Spendable balance: </Typography>
-              {spendableBalanceString === undefined ? (
-                <Typography variant="body2">Loading...</Typography>
-              ) : (
-                <Typography variant="body2">
-                  {spendableBalanceString}
-                </Typography>
-              )}
-            </Flex>
-          )}
-        </Flex>
-      </Grid>
-      <Grid xs={6} item>
-        <NFTOfferTokenSelector
-          selectedWalletId={tokenWalletInfo.walletId}
-          id="tokenWalletId"
-          onChange={(selection) =>
-            handleTokenSelectionChanged(
-              selection.walletId,
-              selection.walletType,
-              selection.symbol,
-              selection.name,
-            )
-          }
-        />
-      </Grid>
-    </Flex>
+    <Grid item>
+      <Amount
+        id={`${tab}-amount}`}
+        key={`${tab}-amount}`}
+        variant="filled"
+        name="xchAmount"
+        color="secondary"
+        disabled={disabled}
+        label={<Trans>Amount</Trans>}
+        defaultValue={amount}
+        onChange={handleAmountChange}
+        onFocus={() => setAmountFocused(true)}
+        onBlur={() => setAmountFocused(false)}
+        showAmountInMojos={true}
+        InputLabelProps={{ shrink: shrinkAmount }}
+        required
+      />
+    </Grid>
   );
   const offerElem =
-    tab === NFTOfferExchangeType.NFTForToken ? nftElem : amountElem;
+    tab === NFTOfferExchangeType.NFTForXCH ? nftElem : amountElem;
   const takerElem =
-    tab === NFTOfferExchangeType.NFTForToken ? amountElem : nftElem;
+    tab === NFTOfferExchangeType.NFTForXCH ? amountElem : nftElem;
   const showRoyaltyWarning = (royaltyPercentage ?? 0) >= 20;
   const royaltyPercentageColor = showRoyaltyWarning
     ? StateColor.WARNING
@@ -311,20 +214,11 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
   const showNegativeAmountWarning = (nftSellerNetAmount ?? 0) < 0;
 
   function handleAmountChange(amount: string) {
-    methods.setValue('tokenAmount', amount);
+    methods.setValue('xchAmount', amount);
   }
 
   function handleFeeChange(fee: string) {
     methods.setValue('fee', fee);
-  }
-
-  function handleTokenSelectionChanged(
-    walletId: number,
-    walletType: WalletType,
-    symbol?: string,
-    name?: string,
-  ) {
-    methods.setValue('tokenWalletInfo', { walletId, walletType, symbol, name });
   }
 
   function handleReset() {
@@ -358,13 +252,13 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
         indicatorColor="primary"
       >
         <Tab
-          value={NFTOfferExchangeType.TokenForNFT}
-          label={<Trans>Buy an NFT</Trans>}
+          value={NFTOfferExchangeType.NFTForXCH}
+          label={<Trans>NFT for XCH</Trans>}
           disabled={disabled}
         />
         <Tab
-          value={NFTOfferExchangeType.NFTForToken}
-          label={<Trans>Sell an NFT</Trans>}
+          value={NFTOfferExchangeType.XCHForNFT}
+          label={<Trans>XCH for NFT</Trans>}
           disabled={disabled}
         />
       </Tabs>
@@ -405,13 +299,13 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
                     <FormatLargeNumber
                       value={new BigNumber(royaltyAmountString ?? 0)}
                     />{' '}
-                    {tokenWalletInfo.symbol ?? tokenWalletInfo.name ?? ''}
+                    {currencyCode}
                   </Typography>
                 )}
               </Flex>
             </Flex>
           ) : null}
-          {tab === NFTOfferExchangeType.TokenForNFT && (
+          {tab === NFTOfferExchangeType.XCHForNFT && (
             <Flex flexDirection="column" gap={2}>
               {!nft?.royaltyPercentage && <Divider />}
               {makerFeeElem}
@@ -422,7 +316,7 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
               <>
                 <Flex flexDirection="column" gap={0.5}>
                   <Typography variant="body1" color="textSecondary">
-                    {tab === NFTOfferExchangeType.NFTForToken ? (
+                    {tab === NFTOfferExchangeType.NFTForXCH ? (
                       <Trans>You will receive</Trans>
                     ) : (
                       <Trans>They will receive</Trans>
@@ -437,7 +331,7 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
                     <FormatLargeNumber
                       value={new BigNumber(nftSellerNetAmount ?? 0)}
                     />{' '}
-                    {tokenWalletInfo.symbol ?? tokenWalletInfo.name ?? ''}
+                    {currencyCode}
                   </Typography>
                   {showNegativeAmountWarning && (
                     <Typography variant="body2" color={StateColor.ERROR}>
@@ -452,7 +346,7 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
                 <Flex flexDirection="column" gap={0.5}>
                   <Flex flexDirection="row" alignItems="center" gap={1}>
                     <Typography variant="h6" color="textSecondary">
-                      {tab === NFTOfferExchangeType.NFTForToken ? (
+                      {tab === NFTOfferExchangeType.NFTForXCH ? (
                         <Trans>Total Amount Requested</Trans>
                       ) : (
                         <Trans>Total Amount Offered</Trans>
@@ -460,7 +354,7 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
                     </Typography>
                     <Flex justifyContent="center">
                       <TooltipIcon>
-                        {tab === NFTOfferExchangeType.NFTForToken ? (
+                        {tab === NFTOfferExchangeType.NFTForXCH ? (
                           <Trans>
                             The total amount requested includes the asking
                             price, plus the associated creator fees (if the NFT
@@ -492,24 +386,13 @@ function NFTOfferConditionalsPanel(props: NFTOfferConditionalsPanelProps) {
                     <FormatLargeNumber
                       value={new BigNumber(totalAmountString ?? 0)}
                     />{' '}
-                    {tokenWalletInfo.symbol ?? tokenWalletInfo.name ?? ''}
-                    {tab === NFTOfferExchangeType.TokenForNFT &&
-                      tokenWalletInfo.walletType !==
-                        WalletType.STANDARD_WALLET &&
-                      makerFee > 0 && (
-                        <div>
-                          <FormatLargeNumber
-                            value={new BigNumber(makerFee ?? 0)}
-                          />
-                          {' XCH'}
-                        </div>
-                      )}
+                    {currencyCode}
                   </Typography>
                 </Flex>
               </>
             </Flex>
           ) : null}
-          {tab === NFTOfferExchangeType.NFTForToken && (
+          {tab === NFTOfferExchangeType.NFTForXCH && (
             <Flex flexDirection="column" gap={2}>
               <Divider />
               {makerFeeElem}
@@ -552,68 +435,43 @@ NFTOfferConditionalsPanel.defaultProps = {
 
 /* ========================================================================== */
 /*                              NFT Offer Editor                              */
-/*           Currently only supports a single NFT <--> XCH/CAT offer          */
+/*             Currently only supports a single NFT <--> XCH offer            */
 /* ========================================================================== */
-
-export type NFTOfferEditorTokenWalletInfo = {
-  walletId: number;
-  walletType: WalletType;
-  symbol?: string;
-  name?: string;
-  spendableBalance?: BigNumber;
-  spendableBalanceString?: string;
-};
 
 type NFTOfferEditorFormData = {
   exchangeType: NFTOfferExchangeType;
   nftId?: string;
-  tokenWalletInfo: NFTOfferEditorTokenWalletInfo;
-  tokenAmount: string;
+  xchAmount: string;
   fee: string;
 };
 
 type NFTOfferEditorValidatedFormData = {
   exchangeType: NFTOfferExchangeType;
   launcherId: string;
-  tokenWalletInfo: NFTOfferEditorTokenWalletInfo;
-  tokenAmount: string;
+  xchAmount: string;
   fee: string;
 };
 
 type NFTOfferEditorProps = {
   nft?: NFTInfo;
   onOfferCreated: (obj: { offerRecord: any; offerData: any }) => void;
-  exchangeType: NFTOfferExchangeType;
 };
 
-type NFTBuildOfferRequestParams = {
-  exchangeType: NFTOfferExchangeType;
-  nft: NFTInfo;
-  nftLauncherId: string;
-  tokenWalletInfo: NFTOfferEditorTokenWalletInfo;
-  tokenAmount: string;
-  fee: string;
-};
-
-function buildOfferRequest(params: NFTBuildOfferRequestParams) {
-  const {
-    exchangeType,
-    nft,
-    nftLauncherId,
-    tokenWalletInfo,
-    tokenAmount,
-    fee,
-  } = params;
-  const baseMojoAmount: BigNumber =
-    tokenWalletInfo.walletType === WalletType.CAT
-      ? catToMojo(tokenAmount)
-      : chiaToMojo(tokenAmount);
+function buildOfferRequest(
+  exchangeType: NFTOfferExchangeType,
+  nft: NFTInfo,
+  nftLauncherId: string,
+  xchAmount: string,
+  fee: string,
+) {
+  const baseMojoAmount: BigNumber = chiaToMojo(xchAmount);
   const mojoAmount =
-    exchangeType === NFTOfferExchangeType.NFTForToken
+    exchangeType === NFTOfferExchangeType.NFTForXCH
       ? baseMojoAmount
       : baseMojoAmount.negated();
   const feeMojoAmount = chiaToMojo(fee);
-  const nftAmount = exchangeType === NFTOfferExchangeType.NFTForToken ? -1 : 1;
+  const nftAmount = exchangeType === NFTOfferExchangeType.NFTForXCH ? -1 : 1;
+  const xchWalletId = 1;
   const innerAlsoDict = nft.supportsDid
     ? {
         type: 'ownership',
@@ -644,20 +502,22 @@ function buildOfferRequest(params: NFTBuildOfferRequestParams) {
   return [
     {
       [nftLauncherId]: nftAmount,
-      [tokenWalletInfo.walletId]: mojoAmount,
+      [xchWalletId]: mojoAmount,
     },
-    exchangeType === NFTOfferExchangeType.TokenForNFT ? driverDict : undefined,
+    exchangeType === NFTOfferExchangeType.XCHForNFT ? driverDict : undefined,
+    // driverDict,
     feeMojoAmount,
   ];
 }
 
 export default function NFTOfferEditor(props: NFTOfferEditorProps) {
-  const { nft, onOfferCreated, exchangeType } = props;
+  const { nft, onOfferCreated } = props;
   const [createOfferForIds] = useCreateOfferForIdsMutation();
   const [isProcessing, setIsProcessing] = useState(false);
   const { wallets: nftWallets } = useGetNFTWallets();
-  const { nfts } = useFetchNFTs(nftWallets.map((wallet: Wallet) => wallet.id));
-  const currencyCode = useCurrencyCode();
+  const { nfts, isLoading: isLoadingNFTs } = useFetchNFTs(
+    nftWallets.map((wallet: Wallet) => wallet.id),
+  );
   const openDialog = useOpenDialog();
   const errorDialog = useShowError();
   const navigate = useNavigate();
@@ -666,16 +526,9 @@ export default function NFTOfferEditor(props: NFTOfferEditorProps) {
     OfferLocalStorageKeys.SUPPRESS_SHARE_ON_CREATE,
   );
   const defaultValues: NFTOfferEditorFormData = {
-    exchangeType: exchangeType,
+    exchangeType: NFTOfferExchangeType.NFTForXCH,
     nftId: nft?.$nftId ?? '',
-    tokenWalletInfo: {
-      walletId: 1,
-      walletType: WalletType.STANDARD_WALLET,
-      symbol: currencyCode,
-      name: 'Chia',
-      spendableBalance: new BigNumber(0),
-    },
-    tokenAmount: '',
+    xchAmount: '',
     fee: '',
   };
   const methods = useForm<NFTOfferEditorFormData>({
@@ -689,8 +542,7 @@ export default function NFTOfferEditor(props: NFTOfferEditorProps) {
   function validateFormData(
     unvalidatedFormData: NFTOfferEditorFormData,
   ): NFTOfferEditorValidatedFormData | undefined {
-    const { exchangeType, nftId, tokenWalletInfo, tokenAmount, fee } =
-      unvalidatedFormData;
+    const { exchangeType, nftId, xchAmount, fee } = unvalidatedFormData;
     let result: NFTOfferEditorValidatedFormData | undefined = undefined;
 
     if (!nftId) {
@@ -699,21 +551,13 @@ export default function NFTOfferEditor(props: NFTOfferEditorProps) {
       errorDialog(new Error(t`Invalid NFT identifier`));
     } else if (!launcherId) {
       errorDialog(new Error(t`Failed to decode NFT identifier`));
-    } else if (!tokenWalletInfo?.walletId) {
-      errorDialog(new Error(t`Please select an asset type`));
-    } else if (!tokenAmount || tokenAmount === '0') {
+    } else if (!xchAmount || xchAmount === '0') {
       errorDialog(new Error(t`Please enter an amount`));
-    } else if (
-      exchangeType === NFTOfferExchangeType.TokenForNFT &&
-      tokenWalletInfo.spendableBalance?.isLessThan(tokenAmount)
-    ) {
-      errorDialog(new Error(t`Amount exceeds spendable balance`));
     } else {
       result = {
         exchangeType,
         launcherId,
-        tokenWalletInfo,
-        tokenAmount,
+        xchAmount,
         fee,
       };
     }
@@ -737,10 +581,9 @@ export default function NFTOfferEditor(props: NFTOfferEditorProps) {
       return;
     }
 
-    const { exchangeType, launcherId, tokenWalletInfo, tokenAmount, fee } =
-      formData;
+    const { exchangeType, launcherId, xchAmount, fee } = formData;
 
-    if (exchangeType === NFTOfferExchangeType.NFTForToken) {
+    if (exchangeType === NFTOfferExchangeType.NFTForXCH) {
       const haveNFT =
         nfts.find((nft: NFTInfo) => nft.$nftId === offerNFT.$nftId) !==
         undefined;
@@ -768,14 +611,13 @@ export default function NFTOfferEditor(props: NFTOfferEditorProps) {
       return;
     }
 
-    const [offer, driverDict, feeInMojos] = buildOfferRequest({
+    const [offer, driverDict, feeInMojos] = buildOfferRequest(
       exchangeType,
-      nft: offerNFT,
-      nftLauncherId: launcherId,
-      tokenWalletInfo,
-      tokenAmount,
+      offerNFT,
+      launcherId,
+      xchAmount,
       fee,
-    });
+    );
 
     const confirmedCreation = await openDialog(
       <OfferEditorConfirmationDialog />,
@@ -850,18 +692,12 @@ export default function NFTOfferEditor(props: NFTOfferEditorProps) {
 
 type CreateNFTOfferEditorProps = {
   nft?: NFTInfo;
-  exchangeType?: NFTOfferExchangeType;
   referrerPath?: string;
   onOfferCreated: (obj: { offerRecord: any; offerData: any }) => void;
 };
 
 export function CreateNFTOfferEditor(props: CreateNFTOfferEditorProps) {
-  const {
-    nft,
-    exchangeType = NFTOfferExchangeType.TokenForNFT,
-    referrerPath,
-    onOfferCreated,
-  } = props;
+  const { nft, referrerPath, onOfferCreated } = props;
 
   const title = <Trans>Create an NFT Offer</Trans>;
   const navElement = referrerPath ? (
@@ -876,11 +712,7 @@ export function CreateNFTOfferEditor(props: CreateNFTOfferEditorProps) {
     <Grid container>
       <Flex flexDirection="column" flexGrow={1} gap={3}>
         <Flex>{navElement}</Flex>
-        <NFTOfferEditor
-          nft={nft}
-          onOfferCreated={onOfferCreated}
-          exchangeType={exchangeType}
-        />
+        <NFTOfferEditor nft={nft} onOfferCreated={onOfferCreated} />
       </Flex>
     </Grid>
   );

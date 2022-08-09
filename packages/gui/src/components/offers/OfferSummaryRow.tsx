@@ -79,7 +79,9 @@ export function OfferSummaryNFTRow(
   const { launcherId, rowNumber, showNFTPreview } = props;
   const nftId = launcherIdToNFTId(launcherId);
 
-  const { data: nft } = useGetNFTInfoQuery({ coinId: launcherId ?? '' });
+  const {
+    data: nft,
+  } = useGetNFTInfoQuery({ coinId: launcherId ?? '' });
 
   const owner = useMemo(() => {
     if (!nft) {
@@ -92,10 +94,7 @@ export function OfferSummaryNFTRow(
     const hexDIDId = stripHexPrefix(ownerDid);
     const didId = didToDIDId(hexDIDId);
 
-    if (
-      didId ===
-      'did:chia:19qf3g9876t0rkq7tfdkc28cxfy424yzanea29rkzylq89kped9hq3q7wd2'
-    ) {
+    if (didId === 'did:chia:19qf3g9876t0rkq7tfdkc28cxfy424yzanea29rkzylq89kped9hq3q7wd2') {
       return 'Chia Network';
     }
 

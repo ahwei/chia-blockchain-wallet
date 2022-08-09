@@ -10,7 +10,6 @@ import {
   toBech32m,
 } from '@chia/api';
 import type {
-  CATToken,
   NFTInfo,
   PlotNFT,
   PlotNFTExternal,
@@ -857,16 +856,14 @@ export const walletApi = apiWithTag.injectEndpoints({
         command: 'getCurrentDerivationIndex',
         service: Wallet,
       }),
-      providesTags: result => (result ? [{ type: 'DerivationIndex' }] : []),
-      onCacheEntryAdded: onCacheEntryAddedInvalidate(baseQuery, [
-        {
-          command: 'onNewDerivationIndex',
-          service: Wallet,
-          onUpdate: (draft, data) => {
-            draft.index = data?.additionalData?.index;
-          },
+      providesTags: (result) => result ? [{ type: 'DerivationIndex' }] : [],
+      onCacheEntryAdded: onCacheEntryAddedInvalidate(baseQuery, [{
+        command: 'onNewDerivationIndex',
+        service: Wallet,
+        onUpdate: (draft, data) => {
+          draft.index = data?.additionalData?.index;
         },
-      ]),
+      }]),
     }),
     extendDerivationIndex: build.mutation<
       undefined,
@@ -1238,7 +1235,14 @@ export const walletApi = apiWithTag.injectEndpoints({
       transformResponse: (response: any) => response?.assetId,
     }),
 
-    getCatList: build.query<CATToken[], undefined>({
+    getCatList: build.query<
+      {
+        assetId: string;
+        name: string;
+        symbol: string;
+      }[],
+      undefined
+    >({
       query: () => ({
         command: 'getCatList',
         service: CAT,

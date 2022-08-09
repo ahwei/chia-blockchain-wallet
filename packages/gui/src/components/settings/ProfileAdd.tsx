@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trans, t } from '@lingui/macro';
 import {
+  Button,
   ButtonLoading,
   chiaToMojo,
   Fee,
@@ -19,6 +20,10 @@ import {
 } from '@chia/api-react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
+import {
+  WalletType,
+  type Wallet,
+ } from '@chia/api';
 import useOpenExternal from '../../hooks/useOpenExternal';
 import isNumeric from 'validator/es/lib/isNumeric';
 
@@ -47,7 +52,7 @@ export default function ProfileAdd() {
   });
 
   const [createProfile, { isLoading: isCreateProfileLoading }] = useCreateNewWalletMutation();
-  const { data: balance } = useGetWalletBalanceQuery({
+  const { data: balance, isLoading: isLoadingWalletBalance } = useGetWalletBalanceQuery({
     walletId: 1,
   });
   const navigate = useNavigate();

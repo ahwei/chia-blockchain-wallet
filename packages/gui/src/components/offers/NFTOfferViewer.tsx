@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import BigNumber from 'bignumber.js';
-import { Plural, Trans, t } from '@lingui/macro';
+import { Plural, Trans } from '@lingui/macro';
 import {
   useCheckOfferValidityMutation,
   useGetNFTInfoQuery,
@@ -21,10 +21,10 @@ import {
   StateColor,
   Tooltip,
   TooltipIcon,
-  catToMojo,
   chiaToMojo,
   mojoToChia,
   useColorModeValue,
+  useCurrencyCode,
   useShowError,
 } from '@chia/core';
 import { Box, Divider, Grid, Typography } from '@mui/material';
@@ -276,16 +276,14 @@ export function NFTOfferSummary(props: NFTOfferSummaryProps) {
     if (isMyOffer || isLoadingNFTs) {
       return [];
     }
-    const takerUnknownAssets = makerEntries
-      .filter(
-        ([assetId]) =>
-          offerAssetTypeForAssetId(assetId, summary) !== OfferAsset.NFT &&
-          lookupByAssetId(assetId) === undefined,
-      )
-      .map(([assetId]) => assetId);
+    const takerUnknownAssets = makerEntries.filter(
+      ([assetId, _]) =>
+        offerAssetTypeForAssetId(assetId, summary) !== OfferAsset.NFT &&
+        lookupByAssetId(assetId) === undefined,
+    );
 
     const makerUnknownAssets = takerEntries
-      .filter(([assetId]) => {
+      .filter(([assetId, _]) => {
         const assetType = offerAssetTypeForAssetId(assetId, summary);
         if (assetType === OfferAsset.NFT) {
           return (
@@ -298,7 +296,7 @@ export function NFTOfferSummary(props: NFTOfferSummaryProps) {
         }
         return lookupByAssetId(assetId) === undefined;
       })
-      .map(([assetId]) => assetId);
+      .map(([assetId, _]) => assetId);
 
     return [takerUnknownAssets, makerUnknownAssets];
   }, [
@@ -386,6 +384,7 @@ function NFTOfferDetails(props: NFTOfferDetailsProps) {
   const showError = useShowError();
   const methods = useForm({ defaultValues: { fee: '' } });
   const navigate = useNavigate();
+  const currencyCode = useCurrencyCode();
   const theme = useTheme();
   const [acceptOffer] = useAcceptOfferHook();
   const [isAccepting, setIsAccepting] = useState<boolean>(false);
@@ -402,11 +401,7 @@ function NFTOfferDetails(props: NFTOfferDetailsProps) {
     ? launcherIdToNFTId(launcherId)
     : undefined;
   const { data: nft } = useGetNFTInfoQuery({ coinId: launcherId });
-  const { amount, assetId, assetType } =
-    getNFTPriceWithoutRoyalties(summary) ?? {};
-  const { lookupByAssetId } = useAssetIdName();
-  const assetIdInfo = assetId ? lookupByAssetId(assetId) : undefined;
-  const displayName = assetIdInfo?.displayName ?? t`Unknown CAT`;
+  const amount = getNFTPriceWithoutRoyalties(summary);
 
   const nftSaleInfo = useMemo(() => {
     if (
@@ -436,10 +431,8 @@ function NFTOfferDetails(props: NFTOfferDetailsProps) {
     ? StateColor.WARNING
     : 'textSecondary';
   const overrideNFTSellerAmount =
-    exchangeType === NFTOfferExchangeType.TokenForNFT
-      ? assetType === OfferAsset.CHIA
-        ? chiaToMojo(nftSaleInfo?.nftSellerNetAmount ?? 0)
-        : catToMojo(nftSaleInfo?.nftSellerNetAmount ?? 0)
+    exchangeType === NFTOfferExchangeType.XCHForNFT
+      ? chiaToMojo(nftSaleInfo?.nftSellerNetAmount ?? 0)
       : undefined;
 
   useMemo(async () => {
@@ -558,14 +551,13 @@ function NFTOfferDetails(props: NFTOfferDetailsProps) {
                           <FormatLargeNumber
                             value={
                               new BigNumber(
-                                exchangeType ===
-                                NFTOfferExchangeType.NFTForToken
+                                exchangeType === NFTOfferExchangeType.NFTForXCH
                                   ? nftSaleInfo?.nftSellerNetAmount ?? 0
                                   : amount ?? 0,
                               )
                             }
                           />{' '}
-                          {displayName}
+                          {currencyCode}
                         </>
                       </Typography>
                     </Flex>
@@ -598,7 +590,7 @@ function NFTOfferDetails(props: NFTOfferDetailsProps) {
                             new BigNumber(nftSaleInfo?.royaltyAmountString ?? 0)
                           }
                         />{' '}
-                        {displayName}
+                        {currencyCode}
                       </Typography>
                     </Flex>
                   </>
@@ -610,7 +602,7 @@ function NFTOfferDetails(props: NFTOfferDetailsProps) {
                   <Divider />
                   <Flex flexDirection="column" gap={0.5}>
                     <Flex flexDirection="row" alignItems="center" gap={1}>
-                      {exchangeType === NFTOfferExchangeType.NFTForToken ? (
+                      {exchangeType === NFTOfferExchangeType.NFTForXCH ? (
                         <Typography variant="h6" color="textSecondary">
                           <Trans>Total Amount Requested</Trans>
                         </Typography>
@@ -621,7 +613,7 @@ function NFTOfferDetails(props: NFTOfferDetailsProps) {
                       )}
                       <Flex justifyContent="center">
                         <TooltipIcon>
-                          {exchangeType === NFTOfferExchangeType.NFTForToken ? (
+                          {exchangeType === NFTOfferExchangeType.NFTForXCH ? (
                             <Trans>
                               The total amount requested includes the asking
                               price, plus the associated creator fees (if the
@@ -650,12 +642,12 @@ function NFTOfferDetails(props: NFTOfferDetailsProps) {
                     </Flex>
                     <Typography
                       variant={
-                        exchangeType === NFTOfferExchangeType.NFTForToken
+                        exchangeType === NFTOfferExchangeType.NFTForXCH
                           ? 'h5'
                           : 'h6'
                       }
                       fontWeight={
-                        exchangeType === NFTOfferExchangeType.NFTForToken
+                        exchangeType === NFTOfferExchangeType.NFTForXCH
                           ? 'bold'
                           : 'regular'
                       }
@@ -665,10 +657,10 @@ function NFTOfferDetails(props: NFTOfferDetailsProps) {
                           new BigNumber(nftSaleInfo?.totalAmountString ?? 0)
                         }
                       />{' '}
-                      {displayName}
+                      {currencyCode}
                     </Typography>
                   </Flex>
-                  {exchangeType === NFTOfferExchangeType.TokenForNFT && (
+                  {exchangeType === NFTOfferExchangeType.XCHForNFT && (
                     <Flex flexDirection="column" gap={0.5}>
                       <Flex flexDirection="row" alignItems="center" gap={1}>
                         <Typography variant="h6" color="textSecondary">
@@ -690,7 +682,7 @@ function NFTOfferDetails(props: NFTOfferDetailsProps) {
                             new BigNumber(nftSaleInfo?.nftSellerNetAmount ?? 0)
                           }
                         />{' '}
-                        {displayName}
+                        {currencyCode}
                       </Typography>
                     </Flex>
                   )}

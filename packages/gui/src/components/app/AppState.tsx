@@ -1,9 +1,26 @@
 import React, { useState, useEffect, ReactNode, useMemo } from 'react';
 import isElectron from 'is-electron';
 import { Trans } from '@lingui/macro';
-import { ConnectionState, ServiceHumanName, ServiceName, PassphrasePromptReason } from '@chia/api';
-import { useCloseMutation, useGetStateQuery, useGetKeyringStatusQuery, useServices } from '@chia/api-react';
-import { Flex, useSkipMigration, LayoutHero, LayoutLoading, useMode, useIsSimulator } from '@chia/core';
+import {
+  ConnectionState,
+  ServiceHumanName,
+  ServiceName,
+  PassphrasePromptReason,
+} from '@chia/api';
+import {
+  useCloseMutation,
+  useGetStateQuery,
+  useGetKeyringStatusQuery,
+  useServices,
+} from '@chia/api-react';
+import {
+  Flex,
+  useSkipMigration,
+  LayoutHero,
+  LayoutLoading,
+  useMode,
+  useIsSimulator,
+} from '@chia/core';
 import { Typography, Collapse } from '@mui/material';
 import AppKeyringMigrator from './AppKeyringMigrator';
 import AppPassPrompt from './AppPassPrompt';
@@ -11,7 +28,7 @@ import AppSelectMode from './AppSelectMode';
 import ModeServices, { SimulatorServices } from '../../constants/ModeServices';
 
 const ALL_SERVICES = [
-  ServiceName.WALLET, 
+  ServiceName.WALLET,
   ServiceName.FULL_NODE,
   ServiceName.FARMER,
   ServiceName.HARVESTER,
@@ -26,8 +43,10 @@ export default function AppState(props: Props) {
   const { children } = props;
   const [close] = useCloseMutation();
   const [closing, setClosing] = useState<boolean>(false);
-  const { data: clienState = {}, isLoading: isClientStateLoading } = useGetStateQuery();
-  const { data: keyringStatus, isLoading: isLoadingKeyringStatus } = useGetKeyringStatusQuery();
+  const { data: clienState = {}, isLoading: isClientStateLoading } =
+    useGetStateQuery();
+  const { data: keyringStatus, isLoading: isLoadingKeyringStatus } =
+    useGetKeyringStatusQuery();
   const [isMigrationSkipped] = useSkipMigration();
   const [mode] = useMode();
   const isSimulator = useIsSimulator();
@@ -56,14 +75,15 @@ export default function AppState(props: Props) {
       return false;
     }
 
-    const specificRunningServiceStates = servicesState
-      .running
-      .filter((serviceState) => runServices.includes(serviceState.service));
+    const specificRunningServiceStates = servicesState.running.filter(
+      (serviceState) => runServices.includes(serviceState.service),
+    );
 
     return specificRunningServiceStates.length === runServices.length;
   }, [servicesState, runServices]);
 
-  const isConnected = !isClientStateLoading && clienState?.state === ConnectionState.CONNECTED;
+  const isConnected =
+    !isClientStateLoading && clienState?.state === ConnectionState.CONNECTED;
 
   async function handleClose(event) {
     if (closing) {
@@ -93,18 +113,27 @@ export default function AppState(props: Props) {
   if (closing) {
     return (
       <LayoutLoading hideSettings>
-        <Flex flexDirection="column" gap={2}> 
+        <Flex flexDirection="column" gap={2}>
           <Typography variant="body1" align="center">
             <Trans>Closing down services</Trans>
           </Typography>
           <Flex flexDirection="column" gap={0.5}>
-            {!!ALL_SERVICES && ALL_SERVICES.map((service) => (
-              <Collapse key={service} in={!!clienState?.startedServices.includes(service)} timeout={{ enter: 0, exit: 1000 }}>
-                <Typography variant="body1" color="textSecondary"  align="center">
-                  {ServiceHumanName[service]}
-                </Typography>
-              </Collapse>
-            ))}
+            {!!ALL_SERVICES &&
+              ALL_SERVICES.map((service) => (
+                <Collapse
+                  key={service}
+                  in={!!clienState?.startedServices.includes(service)}
+                  timeout={{ enter: 0, exit: 1000 }}
+                >
+                  <Typography
+                    variant="body1"
+                    color="textSecondary"
+                    align="center"
+                  >
+                    {ServiceHumanName[service]}
+                  </Typography>
+                </Collapse>
+              ))}
           </Flex>
         </Flex>
       </LayoutLoading>
@@ -167,27 +196,36 @@ export default function AppState(props: Props) {
   if (!allServicesRunning) {
     return (
       <LayoutLoading>
-        <Flex flexDirection="column" gap={2}> 
+        <Flex flexDirection="column" gap={2}>
           <Typography variant="body1" align="center">
             <Trans>Starting services</Trans>
           </Typography>
           <Flex flexDirection="column" gap={0.5}>
-            {!!runServices && runServices.map((service) => (
-              <Collapse key={service} in={!servicesState.running.find(state => state.service === service)} timeout={{ enter: 0, exit: 1000 }}>
-                <Typography variant="body1" color="textSecondary"  align="center">
-                  {ServiceHumanName[service]}
-                </Typography>
-              </Collapse>
-            ))}
+            {!!runServices &&
+              runServices.map((service) => (
+                <Collapse
+                  key={service}
+                  in={
+                    !servicesState.running.find(
+                      (state) => state.service === service,
+                    )
+                  }
+                  timeout={{ enter: 0, exit: 1000 }}
+                >
+                  <Typography
+                    variant="body1"
+                    color="textSecondary"
+                    align="center"
+                  >
+                    {ServiceHumanName[service]}
+                  </Typography>
+                </Collapse>
+              ))}
           </Flex>
         </Flex>
       </LayoutLoading>
     );
   }
 
-  return (
-    <>
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }

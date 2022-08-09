@@ -15,8 +15,6 @@ import { type OfferSummaryRecord } from '@chia/api';
 import OfferDataEntryDialog from './OfferDataEntryDialog';
 import { offerContainsAssetOfType } from './utils';
 import fs, { Stats } from 'fs';
-import { IpcRenderer } from 'electron';
-import { useHotkeys } from 'react-hotkeys-hook';
 
 function SelectOfferFile() {
   const { navigate } = useSerializedNavigationState();
@@ -131,8 +129,8 @@ function SelectOfferFile() {
     const dialogOptions = {
       filters: [{ name: 'Offer Files', extensions: ['offer'] }],
     } as Electron.OpenDialogOptions;
-    const ipcRenderer: IpcRenderer = (window as any).ipcRenderer;
-    const { canceled, filePaths } = await ipcRenderer.invoke(
+    const ipcRenderer = (window as any).ipcRenderer;
+    const { canceled, filePaths } = await ipcRenderer?.invoke(
       'showOpenDialog',
       dialogOptions,
     );
@@ -141,33 +139,12 @@ function SelectOfferFile() {
     }
   }
 
-  async function pasteParse(text: string) {
-    try {
-      await parseOfferSummary(text, undefined);
-    } catch (e) {
-      errorDialog(e);
-    } finally {
-      setIsParsing(false);
-    }
-  }
-
-  const isMac = /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
-  const hotKey = isMac ? 'cmd+v' : 'ctrl+v';
-
-  useHotkeys(hotKey, () => {
-    navigator.clipboard
-      .readText()
-      .then((text) => {
-        pasteParse(text);
-      })
-      .catch((err) => {
-        console.log('Error during paste from clipboard', err);
-      });
-  });
-
   return (
     <Card>
-      <Flex justifyContent="flex-end">
+      <Flex justifyContent="space-between">
+        <Typography variant="subtitle1">
+          <Trans>Drag & drop an offer file below to view its details</Trans>
+        </Typography>
         <Flex flexDirection="row" gap={3}>
           <Button
             variant="outlined"
@@ -186,18 +163,7 @@ function SelectOfferFile() {
         </Flex>
       </Flex>
       <Dropzone maxFiles={1} onDrop={handleDrop} processing={isParsing}>
-        <Flex flexDirection="column" alignItems="center">
-          <Typography color="textSecondary" variant="h5">
-            <Trans>Drag & Drop an Offer File</Trans>
-          </Typography>
-          <Typography color="textSecondary" variant="h6">
-            {isMac ? (
-              <Trans>or Paste (⌘V) an Offer blob</Trans>
-            ) : (
-              <Trans>or Paste (Ctrl-V) an Offer blob</Trans>
-            )}
-          </Typography>
-        </Flex>
+        <Trans>Drag and drop offer file</Trans>
       </Dropzone>
     </Card>
   );
