@@ -132,7 +132,7 @@ export default function SelectKey() {
           </Alert>
         ) : hasFingerprints ? (
           <Typography variant="h5" component="h1">
-            <Trans>Select Key</Trans>
+            <Trans>Select Wallet</Trans>
           </Typography>
         ) : (
           <>

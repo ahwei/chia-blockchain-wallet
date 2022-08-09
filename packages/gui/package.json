@@ -1,8 +1,8 @@
 {
     "name": "@chia/gui",
     "author": "Chia Network <hello@chia.net> (https://chia.net/)",
-    "description": "GUI for Chia Blockchain",
-    "productName": "Chia Blockchain",
+    "description": "Climate Wallet for Chia Blockchain",
+    "productName": "Climate Wallet",
     "private": true,
     "homepage": "./",
     "main": "build/electron/main.js",
